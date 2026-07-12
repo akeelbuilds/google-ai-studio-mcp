@@ -1,0 +1,29 @@
+{
+  "name": "google-ai-studio-mcp",
+  "version": "1.0.0",
+  "description": "A universal, open-source Google AI Studio MCP server providing granular access to Gemini, Imagen, and Veo.",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "google-ai-studio",
+    "gemini",
+    "imagen",
+    "veo"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^2.11.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "dotenv": "^16.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.3"
+  }
+}
