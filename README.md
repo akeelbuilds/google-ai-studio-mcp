@@ -79,16 +79,24 @@ Add to your `claude_desktop_config.json`:
 ```
 
 ## Tools Exposed
-- `googleaistudio_generate_content`: Text generation with full parameter support (Temperature, System Instructions).
-- `googleaistudio_generate_image`: Image generation (Imagen 3) with Aspect Ratio and MIME Type controls.
-- `googleaistudio_generate_video`: Video generation (Veo). Includes automatic Long-Running Operation (LRO) polling with a 30-minute timeout protection and graceful crash/error catching.
-- `googleaistudio_manage_outputs`: File management tool to prevent hard drive bloat in your local AI Outputs directory. Includes actions to `clear_all`, `clear_older_than_two_weeks`, and `get_folder_path`.
+- `googleaistudio_generate_content`: Text generation with full parameter support (Temperature, System Instructions, Thinking Level).
+- `googleaistudio_generate_image`: Image generation (Imagen) with Aspect Ratio, Number of Images, MIME Type, and Person Generation controls. Returns a native inline image plus the saved file path(s).
+- `googleaistudio_start_video`: Starts a Veo video generation and immediately returns an **Operation ID** (non-blocking, avoids MCP execution timeouts).
+- `googleaistudio_check_video`: Polls an Operation ID; when generation is done it downloads the MP4 to disk and returns the path. Poll every 30–60 seconds. Polling is durable — the Operation ID can be re-checked even after a server restart.
+- `googleaistudio_manage_outputs`: File management tool to prevent hard drive bloat in a local AI Outputs directory. Actions: `clear_all`, `clear_older_than_two_weeks`, `get_folder_path` (subdirectories are skipped, not deleted).
 
-### Dynamic Project Output Directories
-By default, global MCP servers often struggle to know which project you're currently working on, leading to all generated media being dumped into one messy global folder. 
+### Where media is saved: `saveDirectory` & `artifactDirectory`
+Media tools take an explicit, AI-supplied **absolute** path so generated assets land exactly where you want them:
 
-This MCP solves that by exposing an optional `project_workspace_path` parameter to the AI models.
+- **`saveDirectory`** (required on `generate_image` / `check_video`, `targetDirectory` on `manage_outputs`): the absolute local directory to save the file into. The directory is created if it doesn't exist. E.g. `C:\Users\Name\Downloads` or a project repo folder.
+- **`artifactDirectory`** (optional): the current conversation's brain/artifact directory, e.g. `<appDataDir>\brain\<conversation-id>`. When provided, the MCP writes a **second copy** of the media there so the host chat UI (e.g. Antigravity's Artifact renderer, which only renders files physically inside the brain directory) can display it inline. Images are also returned as a native MCP `image` block; videos rely on this copy since MCP has no native video block.
 
-**Practical Use Cases:**
-- 🍰 **The Cheesecake Website**: You're working in `~/projects/cheesecake-site` and ask the AI to generate a video of a cheesecake being sliced. The AI dynamically passes its workspace path. The MCP automatically creates a `Your_AI_Outputs_Downloaded_To_Your_Local_Machine` folder directly inside the `cheesecake-site` repo so your cheesecake assets stay with your cheesecake code.
-- 🏕️ **The Camping Tents Store**: Later, you switch to `~/projects/camping-tents` and generate a video of a tent in the rain. The AI passes the new workspace path, and the media is cleanly saved within the camping project, completely separate from the cheesecakes!
+**Rule of thumb for agents:** pass `saveDirectory` for the durable/project copy, and pass `artifactDirectory` (your conversation's brain dir) whenever you want the user to see the media inline in chat.
+
+## Development: Dual-Environment Build & Deploy
+This server is developed in the public repo but mounted by the local agent from its config directory, so changes must be built and copied across:
+
+1. Edit source in the GitHub repo (e.g. `C:\GitHub\google-ai-studio-mcp`).
+2. `npm run build`.
+3. Force-copy the built `dist/` into the active agent config path (e.g. `C:\Users\<you>\.gemini\config\google-ai-studio-mcp`).
+4. Hard-restart the MCP server so the agent re-mounts the updated tools.
