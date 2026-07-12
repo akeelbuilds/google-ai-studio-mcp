@@ -36,7 +36,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           type: "object",
           properties: {
             prompt: { type: "string", description: "The prompt to send to the model." },
-            model: { type: "string", description: "The model to use (default: gemini-1.5-pro-latest)." },
+            model: { type: "string", description: "The model to use (default: gemini-1.5-pro)." },
             systemInstruction: { type: "string", description: "System instructions for the model." },
             temperature: { type: "number", description: "Temperature for generation." }
           },
@@ -78,7 +78,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     if (request.params.name === "googleaistudio_generate_content") {
-      const { prompt, model = "gemini-1.5-pro-latest", systemInstruction, temperature } = request.params.arguments as any;
+      const { prompt, model = "gemini-1.5-pro", systemInstruction, temperature } = request.params.arguments as any;
       const config: any = {};
       if (systemInstruction) config.systemInstruction = systemInstruction;
       if (temperature !== undefined) config.temperature = temperature;
