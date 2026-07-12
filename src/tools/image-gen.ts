@@ -12,7 +12,7 @@ export function registerImageGenTool(server: McpServer) {
         prompt: z.string().describe("Description of the image to generate."),
         saveDirectory: z.string().describe("The absolute local directory path where the generated image should be saved. E.g. C:\\Users\\Name\\Downloads"),
         artifactDirectory: z.string().optional().describe("Optional. The conversation's brain/artifact directory (e.g. <appDataDir>\\brain\\<conversation-id>). If provided, a copy of each image is placed here so it renders inline in the chat UI. Pass the current conversation's artifact directory."),
-        model: z.string().default("imagen-3.0-generate-001").describe("The Imagen model to use. e.g. imagen-3.0-generate-001 or imagen-4.0-fast-generate-001"),
+        model: z.string().default("imagen-4.0-generate-001").describe("The Imagen model to use. e.g. imagen-4.0-generate-001 (standard), imagen-4.0-fast-generate-001 (faster), or imagen-4.0-ultra-generate-001 (highest quality)."),
         aspectRatio: z.enum(["1:1", "3:4", "4:3", "9:16", "16:9"]).optional().describe("Aspect ratio of the image. Will be auto-inferred if omitted."),
         numberOfImages: z.number().min(1).max(4).default(1).describe("Number of images to generate (1-4). Defaults to 1."),
         outputMimeType: z.enum(["image/jpeg", "image/png"]).default("image/jpeg").describe("Output format. Defaults to image/jpeg."),
@@ -67,7 +67,7 @@ export function registerImageGenTool(server: McpServer) {
         } catch (error: any) {
             let errorMessage = error.message || String(error);
             if (error.status === 404 || errorMessage.includes('404')) {
-                errorMessage += `\n\nNote: Make sure the model exists (e.g. imagen-3.0-generate-001).`;
+                errorMessage += `\n\nNote: Make sure the model exists and is available on your API key (e.g. imagen-4.0-generate-001). Older imagen-3.0 models may not be enabled.`;
             }
             return {
                 content: [{ type: "text", text: `Error generating image: ${errorMessage}` }],

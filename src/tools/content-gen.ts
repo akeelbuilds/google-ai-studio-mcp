@@ -5,7 +5,7 @@ import { ai } from "../gemini-client.js";
 export function registerContentGenTool(server: McpServer) {
     server.tool("googleaistudio_generate_content", {
         prompt: z.string().describe("The prompt to send to the model."),
-        model: z.string().default("gemini-1.5-pro").describe("The text model to use (default: gemini-1.5-pro)."),
+        model: z.string().default("gemini-2.5-flash").describe("The text model to use. e.g. gemini-2.5-flash (fast, default), gemini-2.5-pro (highest quality), or gemini-flash-latest."),
         systemInstruction: z.string().optional().describe("System instructions for the model."),
         temperature: z.number().optional().describe("Temperature for generation."),
         thinkingLevel: z.enum(["minimal", "low", "medium", "high"]).optional().describe("Thinking level (for supported Gemini models)."),

@@ -3,7 +3,7 @@
 A universal, open-source Model Context Protocol (MCP) server that exposes the granular features of Google AI Studio (Gemini, Imagen, Veo) directly to your code editors and local LLM clients.
 
 ## Features
-- **Full Model Support**: Use any Google AI Studio model (e.g., `gemini-1.5-pro`, `gemini-exp`).
+- **Full Model Support**: Use any Google AI Studio model your API key has access to (e.g., `gemini-2.5-pro`, `gemini-2.5-flash`).
 - **Granular Imagen Controls**: Control Aspect Ratio, Number of Images, Output Format, and Person Generation settings.
 - **Veo Video Generation**: Built-in support for Veo (requires approved API key).
 - **Cross-Editor Compatibility**: Works out of the box with VS Code, Cursor, Cloud Code, Claude Desktop, and local Ollama clients.
@@ -11,7 +11,7 @@ A universal, open-source Model Context Protocol (MCP) server that exposes the gr
 ### Important Limitations & Versioning
 
 - **Music Generation is NOT supported**: Music generation models (like Lyria or MusicFX) are currently locked behind Google's web UI and private Vertex endpoints. They are not exposed via the standard developer API.
-- **Model Versioning (`-latest` vs Hardcoding)**: For Text and Multimodal models (like Flash and Pro), this MCP uses the `-latest` suffix (e.g., `gemini-1.5-pro-latest`). This ensures the server naturally pulls updated models without breaking when older versions are deprecated.
+- **Model Versioning (`-latest` vs Hardcoding)**: For Text and Multimodal models (like Flash and Pro), you can pass the `-latest` aliases (e.g., `gemini-flash-latest`, `gemini-pro-latest`). This ensures the server naturally pulls updated models without breaking when older versions are deprecated. Note that older families such as `gemini-1.5-*` have been retired and may 404 on newer keys.
   - **CRITICAL EXCEPTION**: Video models (Veo) **do not support** the `-latest` suffix. If Veo video generation stalls out or throws a "Model Not Found" error, you must manually update the hardcoded numerical string in the source code (e.g., bump from `veo-3.1-generate-preview` to `veo-4.0-generate-001`).
 
 ## Installation
