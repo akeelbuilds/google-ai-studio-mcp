@@ -66,7 +66,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           type: "object",
           properties: {
             prompt: { type: "string", description: "The prompt for the video." },
-            model: { type: "string", description: "The model to use (default: veo-0.1-generate-001)." }
+            model: { type: "string", description: "The model to use (default: veo-3.1-generate-preview)." }
           },
           required: ["prompt"]
         }
@@ -129,7 +129,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (request.params.name === "googleaistudio_generate_video") {
-        const { prompt, model = "veo-2.0-generate-001" } = request.params.arguments as any;
+        const { prompt, model = "veo-3.1-generate-preview" } = request.params.arguments as any;
         const operation = await ai.models.generateVideos({
             model,
             prompt
