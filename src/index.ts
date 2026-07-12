@@ -3,6 +3,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import * as fs from "fs";
+import * as path from "path";
 
 dotenv.config();
 
@@ -66,9 +68,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           type: "object",
           properties: {
             prompt: { type: "string", description: "The prompt for the video." },
-            model: { type: "string", description: "The model to use (default: veo-3.1-generate-preview)." }
+            model: { type: "string", description: "The model to use (default: veo-3.1-generate-preview)." },
+            project_workspace_path: { type: "string", description: "Optional. The absolute path of the current project workspace. LLMs should always pass their active directory here to isolate media to the specific project." }
           },
           required: ["prompt"]
+        }
+      },
+      {
+        name: "googleaistudio_manage_outputs",
+        description: "Manage the local AI Outputs directory to prevent hard drive bloat.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            action: { 
+              type: "string", 
+              enum: ["clear_all", "clear_older_than_two_weeks", "get_folder_path"],
+              description: "The action to perform on the output directory."
+            },
+            project_workspace_path: { type: "string", description: "Optional. The absolute path of the current project workspace. LLMs should always pass their active directory here." }
+          },
+          required: ["action"]
         }
       }
     ]
@@ -129,20 +148,149 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (request.params.name === "googleaistudio_generate_video") {
-        const { prompt, model = "veo-3.1-generate-preview" } = request.params.arguments as any;
-        const operation = await ai.models.generateVideos({
+        const { prompt, model = "veo-3.1-generate-preview", project_workspace_path } = request.params.arguments as any;
+        let operation = await ai.models.generateVideos({
             model,
             prompt
         });
-        return {
-            content: [{ type: "text", text: `Video generation triggered successfully!\nModel: ${model}\nNote: Video generation is a long-running operation and can take several minutes. Check your AI Studio dashboard or use polling for the final output file.` }]
-        };
+
+        // Polling loop for Long-Running Operation (LRO)
+        let maxLoops = 120; // 30 minutes at 15s per loop
+        let loopCount = 0;
+        let timeoutReached = false;
+        let apiError: any = null;
+
+        while (!operation.done) {
+            loopCount++;
+            if (loopCount > maxLoops) {
+                timeoutReached = true;
+                break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 15000));
+            try {
+                if ((ai as any).operations?.get) {
+                    operation = await (ai as any).operations.get({ name: operation.name });
+                } else if ((ai as any).operations?.getVideosOperation) {
+                    operation = await (ai as any).operations.getVideosOperation({ name: operation.name });
+                } else {
+                    break;
+                }
+
+                if (operation.error) {
+                    apiError = operation.error;
+                    break;
+                }
+            } catch (pollErr) {
+                console.error("Polling error:", pollErr);
+                apiError = pollErr;
+                break;
+            }
+        }
+
+        if (apiError) {
+            return {
+                content: [{ type: "text", text: `Video generation failed due to an API error during polling: ${JSON.stringify(apiError)}` }],
+                isError: true
+            };
+        }
+
+        if (timeoutReached) {
+            return {
+                content: [{ type: "text", text: `Video generation timed out after 30 minutes. Please check your AI Studio dashboard manually.` }],
+                isError: true
+            };
+        }
+
+        const videoResponse = operation.response;
+        const generatedVideos = videoResponse?.generatedVideos || (videoResponse as any)?.videos;
+        const videoContent = generatedVideos?.[0]?.video || generatedVideos?.[0];
+        let videoPathStr = "";
+
+        if (videoContent?.uri || videoContent?.videoBytes || videoContent?.bytes) {
+            const baseDir = project_workspace_path || process.cwd();
+            const outDir = path.join(baseDir, "Your_AI_Outputs_Downloaded_To_Your_Local_Machine");
+            if (!fs.existsSync(outDir)) {
+                fs.mkdirSync(outDir, { recursive: true });
+            }
+            const fileName = `video_${Date.now()}.mp4`;
+            videoPathStr = path.join(outDir, fileName);
+
+            const bytes = videoContent.videoBytes || videoContent.bytes;
+            if (bytes) {
+                fs.writeFileSync(videoPathStr, Buffer.from(bytes, 'base64'));
+            } else if (videoContent.uri) {
+                fs.writeFileSync(videoPathStr, "Please refer to the URI: " + videoContent.uri);
+            }
+        }
+
+        if (videoPathStr) {
+            return {
+                content: [{ type: "text", text: `![Generated Video](file:///${videoPathStr.replace(/\\/g, '/')})` }]
+            };
+        } else {
+            return {
+                content: [{ type: "text", text: `Video generation finished, but no output bytes were found. Response: ${JSON.stringify(videoResponse)}` }]
+            };
+        }
+    }
+
+    if (request.params.name === "googleaistudio_manage_outputs") {
+        const { action, project_workspace_path } = request.params.arguments as any;
+        const baseDir = project_workspace_path || process.cwd();
+        const outDir = path.join(baseDir, "Your_AI_Outputs_Downloaded_To_Your_Local_Machine");
+
+        if (action === "get_folder_path") {
+            return {
+                content: [{ type: "text", text: `The AI Outputs directory is located at:\n${outDir}` }]
+            };
+        }
+
+        if (!fs.existsSync(outDir)) {
+            return {
+                content: [{ type: "text", text: `The directory does not exist yet. No files to clear.\nPath: ${outDir}` }]
+            };
+        }
+
+        const files = fs.readdirSync(outDir);
+        let deletedCount = 0;
+
+        if (action === "clear_all") {
+            for (const file of files) {
+                fs.unlinkSync(path.join(outDir, file));
+                deletedCount++;
+            }
+            return {
+                content: [{ type: "text", text: `Successfully deleted all ${deletedCount} file(s) from the outputs directory.` }]
+            };
+        }
+
+        if (action === "clear_older_than_two_weeks") {
+            const now = Date.now();
+            const twoWeeksMs = 14 * 24 * 60 * 60 * 1000;
+            for (const file of files) {
+                const filePath = path.join(outDir, file);
+                const stats = fs.statSync(filePath);
+                if (now - stats.mtimeMs > twoWeeksMs) {
+                    fs.unlinkSync(filePath);
+                    deletedCount++;
+                }
+            }
+            return {
+                content: [{ type: "text", text: `Successfully deleted ${deletedCount} file(s) older than two weeks from the outputs directory.` }]
+            };
+        }
+        
+        throw new Error(`Unknown action: ${action}`);
     }
 
     throw new Error(`Unknown tool: ${request.params.name}`);
   } catch (error: any) {
+    let errorMessage = `Error: ${error.message}`;
+    if (error.status === 404 || errorMessage.includes('404') || errorMessage.toLowerCase().includes('not found')) {
+        errorMessage += `\n\nNote: If you are using Veo video models, they do NOT support the '-latest' suffix. You may need to manually update the model string in the source code (e.g., bump to 'veo-4.0-generate-001' or similar).`;
+    }
     return {
-      content: [{ type: "text", text: `Error: ${error.message}` }],
+      content: [{ type: "text", text: errorMessage }],
       isError: true,
     };
   }
