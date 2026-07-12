@@ -129,9 +129,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (request.params.name === "googleaistudio_generate_video") {
+        const { prompt, model = "veo-2.0-generate-001" } = request.params.arguments as any;
+        const operation = await ai.models.generateVideos({
+            model,
+            prompt
+        });
         return {
-            content: [{ type: "text", text: "Error: The Veo API endpoint is currently restricted or in private preview. If your API key has access, this SDK call needs to be updated to match the official Veo endpoint payload." }],
-            isError: true
+            content: [{ type: "text", text: `Video generation triggered successfully!\nModel: ${model}\nNote: Video generation is a long-running operation and can take several minutes. Check your AI Studio dashboard or use polling for the final output file.` }]
         };
     }
 
